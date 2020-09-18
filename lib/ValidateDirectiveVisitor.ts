@@ -3,6 +3,7 @@ import {
   DirectiveLocation,
   DocumentNode,
   GraphQLArgument,
+  GraphQLDirective,
   GraphQLEnumType,
   GraphQLField,
   GraphQLInputField,
@@ -19,7 +20,7 @@ import {
 } from 'graphql';
 import { ValidationError } from 'apollo-server-errors';
 
-import EasyDirectiveVisitor from './EasyDirectiveVisitor';
+import EasyDirectiveVisitor, { vai } from './EasyDirectiveVisitor';
 
 export enum ValidateDirectivePolicy {
   RESOLVER = 'RESOLVER',
@@ -659,27 +660,6 @@ abstract class ValidateDirectiveVisitor<
   ] as const;
 
   public static readonly config: typeof EasyDirectiveVisitor['config'] = {
-    args: {
-      policy: {
-        defaultValue: defaultPolicy,
-        description: 'How to handle validation errors',
-        type: new GraphQLEnumType({
-          name: 'ValidateDirectivePolicy',
-          values: {
-            RESOLVER: {
-              description:
-                'Field resolver is responsible to evaluate it using `validationErrors` injected in GraphQLResolverInfo',
-              value: ValidateDirectivePolicy.RESOLVER,
-            },
-            THROW: {
-              description:
-                'Field resolver is not called if occurs a validation error, it throws `UserInputError`',
-              value: ValidateDirectivePolicy.THROW,
-            },
-          },
-        }),
-      },
-    },
     locations: [
       DirectiveLocation.ARGUMENT_DEFINITION,
       DirectiveLocation.FIELD_DEFINITION,
@@ -688,6 +668,40 @@ abstract class ValidateDirectiveVisitor<
       DirectiveLocation.OBJECT,
     ],
   };
+
+  public static getDirectiveDeclaration(
+    givenDirectiveName?: string,
+    schema?: GraphQLSchema,
+  ): GraphQLDirective {
+    let namePrefix = givenDirectiveName ?? this.defaultName;
+    namePrefix = namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1);
+    const config = {
+      ...this.config,
+      args: {
+        ...this.config.args,
+        policy: {
+          defaultValue: defaultPolicy,
+          description: 'How to handle validation errors',
+          type: new GraphQLEnumType({
+            name: `${namePrefix}ValidateDirectivePolicy`,
+            values: {
+              RESOLVER: {
+                description:
+                  'Field resolver is responsible to evaluate it using `validationErrors` injected in GraphQLResolverInfo',
+                value: ValidateDirectivePolicy.RESOLVER,
+              },
+              THROW: {
+                description:
+                  'Field resolver is not called if occurs a validation error, it throws `UserInputError`',
+                value: ValidateDirectivePolicy.THROW,
+              },
+            },
+          }),
+        },
+      },
+    };
+    return vai(this.defaultName, config, givenDirectiveName, schema);
+  }
 
   public static getTypeDefs(
     directiveName?: string,
